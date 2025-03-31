@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      #container { display: flex; flex-direction: column; height: 100vh; }
+      #user-list { margin: 10px; padding: 10px; background: #f9f9f9; border-radius: 5px; max-height: 200px; overflow-y: auto; box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.1); }
+      #online-box { background-color: #4CAF50; color: white; padding: 5px; text-align: center; font-weight: bold; border-radius: 5px; margin-bottom: 10px; }
+      #user-list h3 { margin: 0; padding: 0; }
+      #user-list ul { list-style-type: none; padding: 0; }
+      #user-list li { padding: 5px 0; font-size: 1rem; }
+      #messages { list-style-type: none; margin: 0; padding: 0; flex-grow: 1; overflow-y: auto; }
+      #messages > li { padding: 0.5rem 1rem; }
+      #messages > li:nth-child(odd) { background: #efefef; }
+      #typing-indicator { font-style: italic; color: #999; margin-top: 10px; padding-left: 10px; }
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+      .notification { font-style: italic; color: #007bff; margin-top: 10px; padding-left: 10px; }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="user-list">
+        <div id="online-box">Online</div>
+        <ul id="users"></ul>
+      </div>
+      <ul id="messages"></ul>
+      <div id="typing-indicator"></div>
+      <div id="notification"></div>
+      <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+      </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      var socket = io();
+      var messages = document.getElementById('messages');
+      var form = document.getElementById('form');
+      var input = document.getElementById('input');
+      var typingIndicator = document.getElementById('typing-indicator');
+      var userList = document.getElementById('users');
+      var notification = document.getElementById('notification');
+      let username = "User" + Math.floor(Math.random() * 1000);
+      let typingTimeout = null;
+
+      input.addEventListener('input', () => {
+        socket.emit('typing');
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          socket.emit('stop typing');
+        }, 1000);
+      });
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (input.value) {
+          socket.emit('chat message', input.value);
+          input.value = '';
+          socket.emit('stop typing');
+        }
+      });
+
+      socket.on('display typing', (username) => {
+        typingIndicator.innerText = `${username} is typing...`;
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      socket.on('hide typing', () => {
+        typingIndicator.innerText = '';
+      });
+
+      socket.on('chat message', function(data) {
+        var item = document.createElement('li');
+        item.textContent = `${data.username}: ${data.message}`;
+        messages.appendChild(item);
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      socket.on('update users', (users) => {
+        userList.innerHTML = '';
+        users.forEach(user => {
+          let li = document.createElement('li');
+          li.textContent = user;
+          userList.appendChild(li);
+        });
+      });
+
+      socket.on('user connected', (msg) => {
+        notification.innerText = msg;
+        setTimeout(() => {
+          notification.innerText = '';
+        }, 3000);
+      });
+
+      socket.on('user disconnected', (msg) => {
+        notification.innerText = msg;
+        setTimeout(() => {
+          notification.innerText = '';
+        }, 3000);
+      });
+    </script>
+  </body>
+</html>
